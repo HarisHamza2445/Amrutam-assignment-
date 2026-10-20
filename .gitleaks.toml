@@ -1,0 +1,7 @@
+[extend]
+useDefault = true
+
+# dummy passwords / keys used only by the test suite
+[allowlist]
+description = "test fixtures"
+paths = ['''^tests/''']
