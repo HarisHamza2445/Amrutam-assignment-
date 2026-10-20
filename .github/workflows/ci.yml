@@ -84,7 +84,8 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          IMAGE=ghcr.io/${{ github.repository_owner }}/amrutam-api
+          # registry paths must be lower case
+          IMAGE=ghcr.io/$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')/amrutam-api
           docker tag amrutam-api:${{ github.sha }} $IMAGE:${{ github.sha }}
           docker push $IMAGE:${{ github.sha }}
 
@@ -98,7 +99,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: set image tag
         run: |
-          cd infra/k8s
-          kustomize edit set image amrutam-api=ghcr.io/${{ github.repository_owner }}/amrutam-api:${{ github.sha }}
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          sed -i "s|newName: .*|newName: ghcr.io/$OWNER/amrutam-api|; s|newTag: .*|newTag: ${{ github.sha }}|" infra/k8s/kustomization.yaml
+          kubectl kustomize infra/k8s > /dev/null
       - name: apply
-        run: echo "kubectl apply -k infra/k8s (or commit the tag and let ArgoCD sync)"
+        # no cluster is wired up for this assignment; with one, this would be
+        # `kubectl apply -k infra/k8s` (or commit the tag and let ArgoCD sync)
+        run: echo "would deploy ghcr.io/.../amrutam-api:${{ github.sha }}"
