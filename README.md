@@ -7,6 +7,7 @@ Stack: **Node.js 20+ / Express, PostgreSQL 16, Redis (optional)**, Prometheus + 
 - Architecture: [docs/architecture.md](docs/architecture.md) (diagrams, booking saga, partitioning, caching, DR)
 - Security: [docs/security.md](docs/security.md) (checklist, threat model, OWASP mapping)
 - API: [docs/openapi.yaml](docs/openapi.yaml), also served as Swagger UI at `http://localhost:4000/docs`
+- Demo video (about 4 min, captions, no audio): [docs/demo/demo.mp4](docs/demo/demo.mp4)
 
 ## What's implemented
 
