@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: amrutam-config
+data:
+  NODE_ENV: production
+  LOG_LEVEL: info
+  APP_TIMEZONE: Asia/Kolkata
+  DB_POOL_MAX: '15'
+  BOOKING_HOLD_MINUTES: '10'
+  CANCELLATION_CUTOFF_HOURS: '2'
+  REQUIRE_ADMIN_MFA: 'true'
+  OTEL_ENABLED: 'true'
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observability:4318
+# Secrets (DATABASE_URL, REDIS_URL, JWT_ACCESS_SECRET, DATA_ENCRYPTION_KEYS,
+# DATA_ENCRYPTION_ACTIVE_KEY, PAYMENT_WEBHOOK_SECRET) live in a Secret called
+# "amrutam-secrets", synced from AWS Secrets Manager by external-secrets. They are
+# never committed to this repo.

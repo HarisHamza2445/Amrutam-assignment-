@@ -1,0 +1,49 @@
+groups:
+  - name: amrutam-slo
+    rules:
+      # p95 read latency target is 200ms
+      - alert: ReadLatencyHigh
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{method="GET"}[5m]))) > 0.2
+        for: 10m
+        labels: { severity: page }
+        annotations:
+          summary: p95 GET latency above 200ms
+
+      # p95 write latency target is 500ms
+      - alert: WriteLatencyHigh
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{method=~"POST|PUT|PATCH|DELETE"}[5m]))) > 0.5
+        for: 10m
+        labels: { severity: page }
+        annotations:
+          summary: p95 write latency above 500ms
+
+      # 99.95% availability -> error budget burn alert (fast burn, 14.4x)
+      - alert: ErrorBudgetBurn
+        expr: |
+          sum(rate(http_request_duration_seconds_count{status=~"5.."}[5m]))
+            / sum(rate(http_request_duration_seconds_count[5m])) > (14.4 * 0.0005)
+        for: 5m
+        labels: { severity: page }
+        annotations:
+          summary: 5xx rate is burning the monthly error budget too fast
+
+      - alert: JobsDeadLettered
+        expr: increase(jobs_processed_total{result="dead"}[15m]) > 0
+        labels: { severity: ticket }
+        annotations:
+          summary: background jobs ran out of retries (check /admin/jobs/failed)
+
+      - alert: JobQueueLagging
+        expr: histogram_quantile(0.95, sum by (le) (rate(job_start_lag_seconds_bucket[10m]))) > 60
+        for: 10m
+        labels: { severity: ticket }
+        annotations:
+          summary: jobs are waiting more than a minute to be picked up - scale workers
+
+      - alert: WebhookSignatureFailures
+        expr: increase(payment_events_total{result="bad_signature"}[10m]) > 10
+        labels: { severity: ticket }
+        annotations:
+          summary: many webhooks with bad signatures - misconfigured secret or someone probing

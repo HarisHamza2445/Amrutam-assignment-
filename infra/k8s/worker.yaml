@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: amrutam-worker
+  labels: { app: amrutam-worker }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: amrutam-worker }
+  template:
+    metadata:
+      labels: { app: amrutam-worker }
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '9464'
+    spec:
+      terminationGracePeriodSeconds: 60
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: worker
+          image: amrutam-api
+          command: ['node', 'src/worker.js']
+          envFrom:
+            - configMapRef: { name: amrutam-config }
+            - secretRef: { name: amrutam-secrets }
+          env:
+            - { name: OTEL_SERVICE_NAME, value: amrutam-worker }
+            - { name: DB_POOL_MAX, value: '5' }
+          ports: [{ containerPort: 9464, name: metrics }]
+          livenessProbe:
+            httpGet: { path: /, port: metrics }
+            periodSeconds: 15
+          resources:
+            requests: { cpu: 100m, memory: 192Mi }
+            limits: { memory: 384Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: amrutam-worker
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: amrutam-worker }
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: 70 }

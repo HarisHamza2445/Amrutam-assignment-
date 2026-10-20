@@ -1,0 +1,14 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: amrutam
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - migrate-job.yaml
+  - api.yaml
+  - worker.yaml
+  - network-policy.yaml
+images:
+  - name: amrutam-api
+    newName: ghcr.io/your-org/amrutam-api
+    newTag: latest

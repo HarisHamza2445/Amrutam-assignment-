@@ -1,0 +1,25 @@
+# Runs before each rollout (ArgoCD PreSync hook / `kubectl apply` in CI before the deployment).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: amrutam-migrate
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      securityContext: { runAsNonRoot: true, seccompProfile: { type: RuntimeDefault } }
+      containers:
+        - name: migrate
+          image: amrutam-api
+          command: ['node', 'scripts/migrate.js']
+          envFrom:
+            - configMapRef: { name: amrutam-config }
+            - secretRef: { name: amrutam-secrets }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }

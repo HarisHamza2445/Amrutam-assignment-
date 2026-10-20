@@ -1,0 +1,83 @@
+# Full local stack: API, worker, Postgres, Redis + Prometheus, Grafana and Jaeger.
+#   docker compose up --build
+x-app-env: &app-env
+  NODE_ENV: production
+  DATABASE_URL: postgres://amrutam:amrutam@postgres:5432/amrutam
+  REDIS_URL: redis://redis:6379
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-local-only-jwt-secret-please-change-0000}
+  DATA_ENCRYPTION_KEYS: ${DATA_ENCRYPTION_KEYS:-v1:AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=}
+  DATA_ENCRYPTION_ACTIVE_KEY: ${DATA_ENCRYPTION_ACTIVE_KEY:-v1}
+  PAYMENT_WEBHOOK_SECRET: ${PAYMENT_WEBHOOK_SECRET:-local-webhook-secret}
+  REQUIRE_ADMIN_MFA: 'true'
+  OTEL_ENABLED: 'true'
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: amrutam
+      POSTGRES_PASSWORD: amrutam
+      POSTGRES_DB: amrutam
+    ports: ['5432:5432']
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U amrutam']
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports: ['6379:6379']
+
+  migrate:
+    build: .
+    command: ['node', 'scripts/migrate.js']
+    environment: *app-env
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    build: .
+    environment:
+      <<: *app-env
+      OTEL_SERVICE_NAME: amrutam-api
+    ports: ['4000:4000']
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_started }
+
+  worker:
+    build: .
+    command: ['node', 'src/worker.js']
+    environment:
+      <<: *app-env
+      OTEL_SERVICE_NAME: amrutam-worker
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    ports: ['9090:9090']
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: 'true'
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ['3001:3000']
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.58
+    environment:
+      COLLECTOR_OTLP_ENABLED: 'true'
+    ports: ['16686:16686', '4318:4318']
+
+volumes:
+  pgdata:
